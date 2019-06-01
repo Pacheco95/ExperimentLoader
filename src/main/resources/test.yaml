@@ -1,0 +1,32 @@
+arguments:
+  - Database
+  - Fold
+  - MetaFeature
+  - Algorithm
+  - Config
+processes:
+  - id: MetaFeatureCalculator
+    command: "python metaFeatCalc.py {Database} folds/{Fold} de/{MetaFeature}/{Algorithm}.csv"
+    in: [Database, Fold]
+    out: [MetaFeature, Algorithm]
+    log: "mf/{Fold}/{MetaFeature}.out"
+  - id: Tunner
+    command: "java -jar tunner.jar {MetaFeature} alg/{Algorithm} {config}"
+    in: [Metafeature, Algorithm]
+    out: [Config]
+    log: "mf/{Metafeature}/{Algorithm}.out"
+recipeDefaults:
+  - Database: ["D1"]
+recipes:
+  - id: Ex1
+    uses:
+      - Database: ["D1", "D2"]
+      - MetaFeature: ["M1", "M2"]
+      - Algorithm: ["A1", "A2"]
+      - Config: ["C1", "C4"]
+  - id: Ex2
+    uses:
+      - Folds: ["F1", "F2", "F5"]
+      - MetaFeature: ["M1", "M2"]
+      - Algorithm: ["A1", "A2"]
+      - Config: ["C1", "C4"]
