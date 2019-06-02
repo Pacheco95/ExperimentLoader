@@ -9,6 +9,6 @@ import java.util.HashSet;
 public class Experiment {
   private HashSet<String> arguments;
   private HashSet<Process> processes;
-  private HashSet<HashMap<String, HashSet<String>>> recipeDefaults;
+  private HashMap<String, HashSet<String>> recipeDefaults;
   private HashSet<Recipe> recipes;
 }

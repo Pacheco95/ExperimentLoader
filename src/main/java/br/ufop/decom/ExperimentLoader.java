@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Set;
 
 public class ExperimentLoader {
   public static void main(String[] args) throws IOException {
@@ -16,6 +17,10 @@ public class ExperimentLoader {
     Yaml yaml = new Yaml();
     Experiment experiment = yaml.loadAs(is, Experiment.class);
     Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
-    System.out.println(gson.toJson(experiment));
+    gson.toJson(experiment);
+
+    ExperimentBuilder builder = new ExperimentBuilder(experiment);
+    Set<Task> tasks = builder.build();
+    tasks.stream().map(t -> t.command).forEach(System.out::println);
   }
 }

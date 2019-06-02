@@ -11,22 +11,26 @@ processes:
     out: [MetaFeature, Algorithm]
     log: "mf/{Fold}/{MetaFeature}.out"
   - id: Tunner
-    command: "java -jar tunner.jar {MetaFeature} alg/{Algorithm} {config}"
-    in: [Metafeature, Algorithm]
+    command: "java -jar tunner.jar {MetaFeature} alg/{Algorithm} {Config}"
+    in: [MetaFeature, Algorithm]
     out: [Config]
-    log: "mf/{Metafeature}/{Algorithm}.out"
+    log: "mf/{MetaFeature}/{Algorithm}.out"
 recipeDefaults:
-  - Database: ["D1"]
+  Database: ["D1", "D2"]
+  Fold: ["F1", "F2"]
+  MetaFeature: ["M1", "M2"]
+  Algorithm: ["A1", "A2"]
+  Config: ["C1", "C2"]
 recipes:
   - id: Ex1
     uses:
-      - Database: ["D1", "D2"]
-      - MetaFeature: ["M1", "M2"]
-      - Algorithm: ["A1", "A2"]
-      - Config: ["C1", "C4"]
+      Database:    ["D1", "D2"]
+      MetaFeature: ["M1", "M2", "M3"]
+      Algorithm:   ["A1", "A2"]
+      Fold:        ["F1", "F2"]
   - id: Ex2
     uses:
-      - Folds: ["F1", "F2", "F5"]
-      - MetaFeature: ["M1", "M2"]
-      - Algorithm: ["A1", "A2"]
-      - Config: ["C1", "C4"]
+      Fold: ["F1", "F2", "F5"]
+      MetaFeature: ["M1", "M2"]
+      Algorithm: ["A1", "A2"]
+      Config: ["C1", "C4"]

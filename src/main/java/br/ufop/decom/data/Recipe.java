@@ -8,5 +8,5 @@ import java.util.HashSet;
 @Data
 public class Recipe {
   private String id;
-  private HashSet<HashMap<String, HashSet>> uses;
+  private HashMap<String, HashSet<String>> uses;
 }
