@@ -8,31 +8,82 @@ import lombok.RequiredArgsConstructor;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
-public class ExperimentBuilder {
-  private static final Pattern PATTERN = Pattern.compile("\\{([^{}]+)}");
-
+class ExperimentBuilder {
+  private static final Pattern MACRO_PATTERN = Pattern.compile("\\{([^{}]+)}");
   private final Experiment experiment;
 
-  public Set<Task> build() {
+  Set<Task> build() {
     Set<Task> tasks = new LinkedHashSet<>();
+    Map<String, Set<Task>> tasksGroupedByType = new HashMap<>();
+    long id = 0;
     for (Process process : experiment.getProcesses()) {
       for (Recipe recipe : experiment.getRecipes()) {
         Set<Map<String, String>> cartesianProducts = getArgumentsMapping(process, recipe);
         for (Map<String, String> cartesianProduct : cartesianProducts) {
           String command = buildCommand(process, cartesianProduct);
-          tasks.add(new Task(process.getId(), command, null));
+          Task task =
+              new Task(
+                  String.format("%s-%d", process.getId(), ++id), process.getId(), command, new HashSet<>());
+          if (tasksGroupedByType.containsKey(task.getType())) {
+            tasksGroupedByType.get(task.getType()).add(task);
+          } else {
+            Set<Task> tasksSet = new HashSet<>();
+            tasksSet.add(task);
+            tasksGroupedByType.put(task.getType(), tasksSet);
+          }
+          tasks.add(task);
         }
       }
     }
+    updateTaskDependencies(tasks, tasksGroupedByType);
     return tasks;
   }
 
+  private void updateTaskDependencies(Set<Task> tasks, Map<String, Set<Task>> tasksGroupedByType) {
+    Map<String, Set<String>> dependsOf = getProcessesDependenciesRelation();
+
+    // Mapeia cada tipo de processo aos IDs das dependências
+    Map<String, Set<String>> compiledDependencyIDs = new HashMap<>();
+
+    for (Map.Entry<String, Set<String>> entry : dependsOf.entrySet()) {
+      Set<String> dependencyIDs = new HashSet<>();
+      String processType = entry.getKey();
+      Set<String> dependencyTypesOfCurrentProcess = entry.getValue();
+      compiledDependencyIDs.put(processType, dependencyIDs);
+      for (String dependencyType : dependencyTypesOfCurrentProcess) {
+        Set<Task> dependenciesByType = tasksGroupedByType.get(dependencyType);
+        List<String> ids = dependenciesByType.stream().map(Task::getId).collect(Collectors.toList());
+        dependencyIDs.addAll(ids);
+      }
+    }
+
+    for (Task task : tasks) {
+      task.deps = compiledDependencyIDs.get(task.getType());
+    }
+  }
+
+  private Map<String, Set<String>> getProcessesDependenciesRelation() {
+    Map<String, Set<String>> dependsOf = new HashMap<>();
+    experiment.getProcesses().forEach(process -> dependsOf.put(process.getId(), new HashSet<>()));
+
+    for (Process from : experiment.getProcesses()) {
+      for (Process to : experiment.getProcesses()) {
+        if (from == to) continue;
+        if (!Collections.disjoint(from.getIn(), to.getOut())) {
+          dependsOf.get(from.getId()).add(to.getId());
+        }
+      }
+    }
+    return dependsOf;
+  }
+
   /**
-   * @param process
+   * @param process processos para o qual será gerado o comando
    * @param kvMap mapa que associa um argumento/valor a ser substituído no comando
-   * @return
+   * @return o comando gerado
    */
   private String buildCommand(Process process, Map<String, String> kvMap) {
     String prefix = replaceString(process.getCommand(), kvMap);
@@ -42,7 +93,7 @@ public class ExperimentBuilder {
 
   private Set<String> getProcessRequiredArgumentsInOrder(Process process) {
     Set<String> processRequiredArgumentsInOrder = new LinkedHashSet<>();
-    Matcher matcher = PATTERN.matcher(process.getCommand());
+    Matcher matcher = MACRO_PATTERN.matcher(process.getCommand());
     while (matcher.find()) {
       processRequiredArgumentsInOrder.add(matcher.group(1));
     }
@@ -50,8 +101,23 @@ public class ExperimentBuilder {
   }
 
   /**
-   * Retorna um conjunto de mapas onde cada mapa é a relação argumento/valor
-   * */
+   * Retorna um conjunto de mapas onde cada mapa representa as combinações retornadas pelo produto
+   * cartesiano, porém de forma indexada.
+   *
+   * <p>Cada mapa tem a seguinte estrutura:
+   *
+   * <pre>
+   *   Key: ArgumentType
+   *   Value: ArgumentValue
+   * </pre>
+   *
+   * Exemplo para um processo que receba Database e Algorithm como parâmetros:
+   *
+   * <pre>
+   *   "Database" -> "Jester"
+   *   "Algorithm" -> "UserKNN"
+   * </pre>
+   */
   private Set<Map<String, String>> getArgumentsMapping(Process process, Recipe recipe) {
     Set<Map<String, String>> cartesianProductMap = new HashSet<>();
     Set<String> processRequiredArgumentsInOrder = getProcessRequiredArgumentsInOrder(process);
@@ -60,7 +126,15 @@ public class ExperimentBuilder {
     List<List<String>> allArgsWithAllValues = new ArrayList<>();
 
     for (String argumentType : processRequiredArgumentsInOrder) {
-      List<String> argumentValues = new ArrayList<>(recipe.getUses().get(argumentType));
+      List<String> argumentValues;
+      if (recipe.getUses().containsKey(argumentType)) {
+        argumentValues = new ArrayList<>(recipe.getUses().get(argumentType));
+      } else if (experiment.getRecipeDefaults().containsKey(argumentType)) {
+        argumentValues = new ArrayList<>(experiment.getRecipeDefaults().get(argumentType));
+      } else {
+        throw new IllegalArgumentException(
+            String.format("Undefined recipe usage: \"%s\"", argumentType));
+      }
       allArgsWithAllValues.add(argumentValues);
     }
 
@@ -79,7 +153,7 @@ public class ExperimentBuilder {
 
   private String replaceString(String s, Map<String, String> kvMap) {
     StringBuilder builder = new StringBuilder();
-    Matcher matcher = PATTERN.matcher(s);
+    Matcher matcher = MACRO_PATTERN.matcher(s);
     int start = 0;
     int end = 0;
     while (matcher.find()) {
@@ -91,7 +165,6 @@ public class ExperimentBuilder {
     builder.append(s.substring(end));
     return builder.toString();
   }
-
 
   private <T> List<List<T>> cartesianProduct(List<List<T>> lists) {
     List<List<T>> resultLists = new ArrayList<>();

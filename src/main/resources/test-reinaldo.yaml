@@ -1,0 +1,66 @@
+arguments:
+  - DB
+  - Fold
+  - MF
+  - calcMF
+  - Alg
+  - execAlg
+  - HF
+  - execHF
+  - Eval
+  - Stats
+processes:
+  - id: MetaFeatureCalculator
+    command: "java -jar MetricCalculator.jar {DB} {Fold} {MF} 60 0"
+    in: [DB, Fold, MF]
+    out: [calcMF]
+    log: "MetaFeatureCalculator-{DB}-{Fold}-{MF}.out"
+  - id: predictionCF
+    command: "python -u PredictionCF.py {DB} {Alg} {Fold} 60 0"
+    in: [DB, Alg, Fold]
+    out: [execAlg]
+    log: "Prediction-CF-{DB}-{Alg}-{Fold}.out"
+  - id: Hybrid
+    command: "python -u PredictionWHF.py {DB} {HF} {Fold} 60 0"
+    in: [DB, HF, Fold]
+    out: [execHF]
+    log: "../Predictions-WHF-{DB}-{HF}-{Fold}.out"
+  - id: EvaluatorCF
+    command: "java -jar MetricCalculator.jar {DB} {Fold} {Eval} {Alg} 60 0"
+    in: [DB, Fold, Alg]
+    out: [Eval]
+    log: "EvaluatorCF-{DB}-{Fold}-{Eval}-{Alg}.out"
+  - id: EvaluatorWHF
+    command: "java -jar MetricCalculator.jar {DB} {Fold} {Eval} {HF} 60 0"
+    in: [DB, Fold, HF]
+    out: [Eval]
+    log: "EvaluatorWHF-{DB}-{Fold}-{Eval}-{HF}.out"
+  - id: CalculateStatistics
+    command: "java -jar MetricCalculator.jar {DB} ALL {Eval} {Stats} 60 0"
+    in: [DB, Eval]
+    out: [Stats]
+    log: "EvaluatorWHF-{DB}-{Eval}-{Stats}.out"
+recipeDefaults:
+  Fold: ["F1234-5", "F1235-4", "F1245-3", "F1345-2", "F2345-1"]
+  HF: ["STREAM", "FWLS", "HR"]
+  Eval: ["RMSE", "F1", "EPC", "EILD"]
+  calcMF: ["ALL"]
+  execAlg: ["ALL"]
+  execHF: ["ALL"]
+  Stats: ["mean", "IC"]
+recipes:
+  - id: ExBC
+    uses:
+      DB: ["Bookcrossing"]
+      MF: ["PCR", "PR", "GINI", "PEARSON", "PQMEAN", "SD"]
+      Alg: ["Sigmoid", "Biased", "MF", "Uknn", "SVD", "Latent", "Factor", "BiPolar", "SO"]
+  - id: ExJE
+    uses:
+      DB: ["Jester"]
+      MF: ["PCR", "PR", "PEARSON", "PQMEAN"]
+      Alg: ["Biased", "MF", "Iknn", "SVD", "Factor", "BiPolar", "SO"]
+  - id: ExML
+    uses:
+      DB: ["ML1M"]
+      MF: ["PCR", "GINI", "PQMEAN", "SD"]
+      Alg: ["Sigmoid", "Biased", "MF", "Uknn", "Iknn", "SVD", "Latent", "Factor", "BiPolar", "SO"]

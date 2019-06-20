@@ -21,6 +21,6 @@ public class ExperimentLoader {
 
     ExperimentBuilder builder = new ExperimentBuilder(experiment);
     Set<Task> tasks = builder.build();
-    tasks.stream().map(t -> t.command).forEach(System.out::println);
+    tasks.forEach(System.out::println);
   }
 }
